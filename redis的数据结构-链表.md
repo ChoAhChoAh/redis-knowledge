@@ -20,7 +20,7 @@ typedef struct list {
 } list;
 ```
 list用于简化listNode的操作，他保存了头尾两个节点，配合listNode组成了双端链表。
-![链表结构图](https://github.com/ChoAhChoAh/redis-knowledge/blob/main/pic/%E9%93%BE%E8%A1%A8%E7%BB%93%E6%9E%84%E5%9B%BE.jpg)
+![链表结构图](https://github.com/ChoAhChoAh/redis-knowledge/blob/main/pic/list-pic.jpg)
 
 除了上述两个结构外，redis的链表还实现了迭代器结构，用于循环链表数据。
 ```c
