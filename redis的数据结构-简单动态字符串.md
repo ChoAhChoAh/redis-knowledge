@@ -1,6 +1,6 @@
-#redis中的数据结构
-##简单动态字符串（SDS）
-###一、结构
+# redis中的数据结构
+## 简单动态字符串（SDS）
+### 一、结构
 redis的字符串并未使用c的字符串，而是自己实现了SDS结构字符串。  
 在《redis设计与实现》中，3.0版本redis的SDS结构为：  
 ```c
@@ -20,14 +20,14 @@ struct __attribute__ ((__packed__)) sdshdr8 {
 };
 ```
 新版本去除了free属性，并增加了alloc属性代替;新增了flag用于区分预置的集中sds(sdshdr5、sdshdr16、sdshdr32、sdshdr64)。  
-###二、SDS结构的特性：  
+### 二、SDS结构的特性：  
 1. 兼容部分c字符串函数：SDS字符串遵循了c字符串以空字符“\0”结尾的形式，可复用部分c的字符串操作的函数。
 2. 提高字符长度获取速度：相较c的字符串，时间复杂度从O(n)降低为O(1)。  
 3. 杜绝缓冲区溢出：SDS结构的相关方法在执行前会进行空间检查和扩容操作。
 4. 减少修改字符串时的内存重分配次数：**空间预分配** + **惰性释放** 策略将修改n次字符串的扩容操作数从n次，优化为最大n次。
 5. 二进制安全：SDS使用len属性而非空字符来判断字符串结束，因此redis的SDS可以保存文本和二进制数据。
-###三、SDS中一些方法的源码（持续补充中）
-####1.字符串操作函数
+### 三、SDS中一些方法的源码（持续补充中）
+#### 1.字符串操作函数
 sds中实现了多种字符串操作函数，可以去源码中详细查看，当前举例如下：
 ```c
 sds sdscat(sds s, const char *t) {
@@ -86,7 +86,7 @@ sds sdscatlen(sds s, const void *t, size_t len) {
     return s; /* 返回拼接后的字符串 */
 }
 ```
-####2.获取字符串长度方法sdslen
+#### 2.获取字符串长度方法sdslen
 获取字符串长度的方法，可参考下方摘取的源码。  
 方法会首选获取sds结构的flags属性，此处redis使用了-1下标这种方法获取flags属性，
 根据前文的结构介绍，sds常规使用的结构（除sdshdr5之外），均包含4个属性，flags属性在buf之前。
@@ -113,7 +113,7 @@ static inline size_t sdslen(const sds s) {
 ```
 sdslen方法中，还调用了SDS_HDR方法，该方法用于返回类型sds实际类型，用以获取结构的len。(TODO：此处可能解释的不对，待后续重新学习c语言后更正)
 
-####3.自动扩容函数sdsMakeRoomFor
+#### 3.自动扩容函数sdsMakeRoomFor
 在上述小节中，sdscatlen方法中调用了自动扩容方法sdsMakeRoomFor，并最终调用了_sdsMakeRoomFor方法，可参考下方代码。  
 方法参数中：  
 1. s为源字串
@@ -179,7 +179,7 @@ sds _sdsMakeRoomFor(sds s, size_t addlen, int greedy) {
     return s;
 }
 ```
-####4.字符串裁剪函数sdstrim
+#### 4.字符串裁剪函数sdstrim
 通过该方法可知，当进行字符串裁剪时，并未释多余的空间，对应了前文提到的“惰性释放”策略
 ```c
 sds sdstrim(sds s, const char *cset) {
@@ -197,7 +197,7 @@ sds sdstrim(sds s, const char *cset) {
     return s;
 }
 ```
-####5.空间释放函数sdsfree
+#### 5.空间释放函数sdsfree
 函数参考下方截取的源码,最终调用了s_free函数
 ```c
 /* Free an sds string. No operation is performed if 's' is NULL. */
