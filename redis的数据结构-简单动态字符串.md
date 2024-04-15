@@ -26,8 +26,8 @@ struct __attribute__ ((__packed__)) sdshdr8 {
 3. 杜绝缓冲区溢出：SDS结构的相关方法在执行前会进行空间检查和扩容操作。
 4. 减少修改字符串时的内存重分配次数：**空间预分配** + **惰性释放** 策略将修改n次字符串的扩容操作数从n次，优化为最大n次。
 5. 二进制安全：SDS使用len属性而非空字符来判断字符串结束，因此redis的SDS可以保存文本和二进制数据。
-### 三、SDS中一些方法的源码（持续补充中）
-#### 1.字符串操作函数
+### 三、SDS中一些函数的源码（持续补充中）
+#### 3.1 字符串操作函数
 sds中实现了多种字符串操作函数，可以去源码中详细查看，当前举例如下：
 ```c
 sds sdscat(sds s, const char *t) {
@@ -86,9 +86,9 @@ sds sdscatlen(sds s, const void *t, size_t len) {
     return s; /* 返回拼接后的字符串 */
 }
 ```
-#### 2.获取字符串长度方法sdslen
-获取字符串长度的方法，可参考下方摘取的源码。  
-方法会首选获取sds结构的flags属性，此处redis使用了-1下标这种方法获取flags属性，
+#### 3.2 获取字符串长度函数sdslen
+获取字符串长度的函数，可参考下方摘取的源码。  
+方法会首选获取sds结构的flags属性，此处redis使用了-1下标这种方式获取flags属性，
 根据前文的结构介绍，sds常规使用的结构（除sdshdr5之外），均包含4个属性，flags属性在buf之前。
 sds采用了`__attribute__ ((__packed__))`，取消了字节对齐，在结构使用阶段，指针一般指向buf，使用-1相当于之前往前访问了
 一个位置，即属性flags。
@@ -113,9 +113,9 @@ static inline size_t sdslen(const sds s) {
 ```
 sdslen方法中，还调用了SDS_HDR方法，该方法用于返回类型sds实际类型，用以获取结构的len。(TODO：此处可能解释的不对，待后续重新学习c语言后更正)
 
-#### 3.自动扩容函数sdsMakeRoomFor
-在上述小节中，sdscatlen方法中调用了自动扩容方法sdsMakeRoomFor，并最终调用了_sdsMakeRoomFor方法，可参考下方代码。  
-方法参数中：  
+#### 3.3 自动扩容函数sdsMakeRoomFor
+在上述小节中，sdscatlen函数中调用了自动扩容方法sdsMakeRoomFor，并最终调用了_sdsMakeRoomFor函数，可参考下方代码。  
+函数参数中：  
 1. s为源字串
 2. addlen为增加长度
 3. greedy控制是否预分配  
@@ -179,8 +179,8 @@ sds _sdsMakeRoomFor(sds s, size_t addlen, int greedy) {
     return s;
 }
 ```
-#### 4.字符串裁剪函数sdstrim
-通过该方法可知，当进行字符串裁剪时，并未释多余的空间，对应了前文提到的“惰性释放”策略
+#### 3.4 字符串裁剪函数sdstrim
+通过该函数可知，当进行字符串裁剪时，并未释多余的空间，对应了前文提到的“惰性释放”策略
 ```c
 sds sdstrim(sds s, const char *cset) {
     char *end, *sp, *ep;
@@ -197,7 +197,7 @@ sds sdstrim(sds s, const char *cset) {
     return s;
 }
 ```
-#### 5.空间释放函数sdsfree
+#### 3.5 空间释放函数sdsfree
 函数参考下方截取的源码,最终调用了s_free函数
 ```c
 /* Free an sds string. No operation is performed if 's' is NULL. */
