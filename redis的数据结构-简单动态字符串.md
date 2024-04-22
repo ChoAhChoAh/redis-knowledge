@@ -90,8 +90,8 @@ sds sdscatlen(sds s, const void *t, size_t len) {
 获取字符串长度的函数，可参考下方摘取的源码。  
 方法会首选获取sds结构的flags属性，此处redis使用了-1下标这种方式获取flags属性，
 根据前文的结构介绍，sds常规使用的结构（除sdshdr5之外），均包含4个属性，flags属性在buf之前。
-sds采用了`__attribute__ ((__packed__))`，取消了字节对齐，在结构使用阶段，指针一般指向buf，使用-1相当于之前往前访问了
-一个位置，即属性flags。
+sds采用了`__attribute__ ((__packed__))`，取消了字节对齐，取消后即遍sds使用在结构体中，数据也会紧凑存储，不会进行对齐优化而浪费空间。  
+在结构使用阶段，指针一般指向buf，使用-1相当于之前往前访问了一个位置，即属性flags。
 （[详细可参考此文章中的说明](http://meta.math.stackexchange.com/questions/5020/mathjax-basic-tutorial-and-quick-reference) ） 
 ```c
 static inline size_t sdslen(const sds s) {
