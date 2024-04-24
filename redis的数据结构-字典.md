@@ -240,19 +240,25 @@ static void _dictExpandIfNeeded(dict *d) {
     dictExpandIfNeeded(d);
 }
 
+#define DICT_HT_INITIAL_EXP      2
+#define DICT_HT_INITIAL_SIZE     (1<<(DICT_HT_INITIAL_EXP))
+
+static dictResizeEnable dict_can_resize = DICT_RESIZE_ENABLE;
+static unsigned int dict_force_resize_ratio = 4; // 该安全阈值有变化，最新unstable代码将其调整为4，在7.2及其之前版本还是5
+
 /* 如果需要扩展字典大小，则进行扩展操作 */
 int dictExpandIfNeeded(dict *d) {
     /* 如果正在进行增量 rehash，直接返回 */
     if (dictIsRehashing(d)) return DICT_OK;
 
-    /* 如果哈希表为空，则扩展到初始大小 */
+    /* 如果哈希表为空，则扩展到初始大小 ，此处初始大小为4（1<<2=4） */
     if (DICTHT_SIZE(d->ht_size_exp[0]) == 0) {
         dictExpand(d, DICT_HT_INITIAL_SIZE);
         return DICT_OK;
     }
 
     /* 如果达到 1:1 的比例，并且可以调整哈希表大小（全局设置），
-     * 或者虽然应该避免调整大小但是元素/桶的比率超过“安全”阈值，
+     * 或者虽然应该避免调整大小但是元素/桶的比率超过“安全”阈值(dict_force_resize_ratio默认为4，即元素数量在超过可承载数量4倍，即便禁止扩容，也要强制扩容)，
      * 则扩展哈希表大小，将桶的数量翻倍 */
     if ((dict_can_resize == DICT_RESIZE_ENABLE &&
          d->ht_used[0] >= DICTHT_SIZE(d->ht_size_exp[0])) ||
@@ -291,7 +297,7 @@ int _dictResize(dict *d, unsigned long size, int *malloc_failed)
     /* 如果正在进行 rehash，则不允许再次进行 rehash */
     assert(!dictIsRehashing(d));
 
-    /* 新的哈希表 */
+    /* 新的哈希表 ,_dictNextExp进行扩容的容量计算 */
     dictEntry **new_ht_table;
     unsigned long new_ht_used;
     signed char new_ht_size_exp = _dictNextExp(size);
@@ -342,6 +348,19 @@ int _dictResize(dict *d, unsigned long size, int *malloc_failed)
     }
 
     return DICT_OK;
+}
+
+
+/* 使用前导置零法计算下一个哈希表大小的指数值 ,哈希表容量是2的幂 
+ * 代码中，8*sizeof(long) 计算出了 long 类型在当前平台下的位数。
+ * __builtin_clzl(size-1) 计算了 size-1 的二进制表示中前导零的个数，这个值实际上就是找到了离 size 最近的大于 size 的2的幂次方的值。
+*/
+static signed char _dictNextExp(unsigned long size)
+{
+    if (size <= DICT_HT_INITIAL_SIZE) return DICT_HT_INITIAL_EXP; // 如果大小小于等于初始哈希表大小，则返回初始指数
+    if (size >= LONG_MAX) return (8*sizeof(long)-1); // 如果大小超出 LONG_MAX，则返回 LONG_MAX 的位数减一
+
+    return 8*sizeof(long) - __builtin_clzl(size-1); // 否则返回 size-1 的前导零位数
 }
 ```
 ##### 3.2.2 缩容函数
@@ -488,6 +507,36 @@ int dictShrinkIfNeeded(dict *d) {
         return DICT_OK;
     }
     return DICT_ERR;  // 未触发缩小操作
+}
+```
+#### 3.4 关于dict_can_resize的标识设置
+在最新unstable分支代码中，dict_can_resize的修改方法在dict.c中，代码如下
+```c
+void dictSetResizeEnabled(dictResizeEnable enable) {
+    dict_can_resize = enable;
+}
+```
+而调用该方法的函数在server.c中
+```c
+/* 
+ * 此函数在某种后台进程终止时被调用，我们希望在有子进程时避免调整哈希表的大小，
+ * 以便与写时复制一起良好地运行（否则当发生调整大小时，会复制许多内存页）。
+ * 该函数的目标是根据当前是否有活动的 fork 子进程来更新 dict.c 调整大小或重新哈希表的能力。
+ */
+void updateDictResizePolicy(void) {
+    if (server.in_fork_child != CHILD_TYPE_NONE)
+        dictSetResizeEnabled(DICT_RESIZE_FORBID); // 如果在 fork 子进程中，禁止字典调整大小
+    else if (hasActiveChildProcess())
+        dictSetResizeEnabled(DICT_RESIZE_AVOID); // 如果存在活动的子进程，则避免字典调整大小
+    else
+        dictSetResizeEnabled(DICT_RESIZE_ENABLE); // 否则允许字典调整大小
+}
+
+/* 
+ * 如果存在正在进行 RDB 保存、AOF 重写或某个由加载的模块生成的辅助进程，则返回 true。
+ */
+int hasActiveChildProcess(void) {
+    return server.child_pid != -1;
 }
 ```
 
