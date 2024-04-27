@@ -52,7 +52,7 @@ typedef struct zset {
 ```c 
 /* ZSKIPLIST_MAXLEVEL 定义了跳跃表的最大层数，这个值应该足够存储 2^64 个元素。
  * 跳跃表的层数越高，查找元素的速度越快，但是会占用更多的内存空间。 */
-#define ZSKIPLIST_MAXLEVEL 32 /* 应该足够存储 2^64 个元素 */
+#define ZSKIPLIST_MAXLEVEL 32
 
 /* 创建一个新的跳跃表。*/
 zskiplist *zslCreate(void) {
@@ -145,6 +145,7 @@ int zsetAdd(robj *zobj,             // 有序集合对象
     }
 
     /* 根据其编码更新有序集合。*/
+    // listpack编码分支，当前章节不关注此部分代码
     if (zobj->encoding == OBJ_ENCODING_LISTPACK) {
         unsigned char *eptr;
 
@@ -199,6 +200,7 @@ int zsetAdd(robj *zobj,             // 有序集合对象
     }
 
     /* 注意，上面处理 listpack 的代码块要么返回要么将键转换为 skiplist。*/
+    // 此处为skiplist的处理
     if (zobj->encoding == OBJ_ENCODING_SKIPLIST) {
         zset *zs = zobj->ptr;
         zskiplistNode *znode;
